@@ -1,0 +1,94 @@
+# Neural-Network-Classifier-for-Optical-Recognition-of-Handwritten-Digits-Data-Set
+In this project, I build ANN and CNN for Optical Recognition of Handwritten Digits Data Set
+# import neural network libs
+import numpy
+import timeit
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.utils import np_utils
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import LabelEncoder
+
+print("\n********************\nClassifing with ANN\n********************\n")
+
+# fix random seed for reproducibility
+seed = 7
+numpy.random.seed(seed)
+
+# load pima indians dataset
+trainset = numpy.loadtxt("optdigits.tra", delimiter=",")
+testset = numpy.loadtxt("optdigits.tes", delimiter=",")
+
+# split into input (data) and output (labels) variables
+data = trainset[:,0:64]
+labels = trainset[:,64]
+
+data_testset = testset[:,0:64]
+labels_testset = testset[:,64]
+
+# encode class values as integers
+encoder = LabelEncoder()
+encoder.fit(labels)
+encoded_labels = encoder.transform(labels)
+# convert integers to OneHot variables (i.e. one hot encoded)
+OneHot_labels = np_utils.to_categorical(encoded_labels)
+
+# define baseline model
+def baseline_model():
+    # create model
+    model = Sequential()
+    model.add(Dense(36, input_dim=64, init="uniform", activation='relu'))
+    model.add(Dense(10, activation='softmax'))
+    
+    # Compile model
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
+
+# Fit the model
+estimator = KerasClassifier(build_fn=baseline_model, nb_epoch=200, batch_size=10, verbose=0)
+
+# evaluate the model using kFold cross validation with 20% of the data for testing and 80% for training
+kfold = KFold(n_splits=5, shuffle=True)
+results = cross_val_score(estimator, data, OneHot_labels, cv=kfold)
+print("\nOverall Validation accuracy of ANN: %.2f%% (%.2f%%)" % (results.mean()*100, results.std()*100))
+
+# start the timer for training the neural network
+start = timeit.default_timer()
+
+# build the neural network from all the training set
+estimator.fit(data, labels)
+predictions = estimator.predict(data_testset)
+#print("\nPredeiction of ANN: \n" , predictions)
+#print("\nThe actual labels of the test set of ANN:\n" , labels_testset)
+
+# stop the timer after the neural network has been trained and tested
+stop = timeit.default_timer()
+
+count = 0
+for i in range (0, len(predictions)):
+    if (predictions[i] == labels_testset[i]):
+        count+= 1
+
+accuracy = count / len(predictions)
+print ("\nThe Overall accuracy of the nerual network with the test dataset of ANN:  %.2f" % (accuracy*100))
+
+countPredectCat = [0,0,0,0,0,0,0,0,0,0]
+countActualCat = [0,0,0,0,0,0,0,0,0,0]
+for i in range (0, len(predictions)):
+    if (predictions[i] == labels_testset[i]):
+        countPredectCat[int(predictions[i])] += 1
+    countActualCat[int(labels_testset[i])] += 1
+        
+for i in range (0, len(countPredectCat)):
+    print("\nThe accuracy of category ", i , " of ANN equal:  %.2f" % ((countPredectCat[i]/countActualCat[i])*100))
+
+
+# build the confusion matrix after classifing the test data
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(labels_testset, predictions)
+print ("\nThe confusion matrix of ANN when apply the test set on the trained nerual network:\n" , cm)
+
+print("\nThe total time of training the neural network: ", stop - start , "second")
+
